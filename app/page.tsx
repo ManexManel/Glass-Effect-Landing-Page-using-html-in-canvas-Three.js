@@ -18,7 +18,9 @@ export default function Home() {
           camera={{ position: [0, 0, 10], fov: 45 }}
         >
           <color attach="background" args={['#030303']} />
-          <Scene />
+          <React.Suspense fallback={null}>
+            <Scene />
+          </React.Suspense>
         </Canvas>
       </div>
     </main>

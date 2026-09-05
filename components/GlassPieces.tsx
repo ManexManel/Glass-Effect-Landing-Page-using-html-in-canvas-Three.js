@@ -1,47 +1,40 @@
 "use client";
 
 import * as THREE from 'three';
-import React, { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { MeshTransmissionMaterial } from '@react-three/drei';
 
-// Géométrie vectorielle des plaques de verre recréée d'après l'analyse visuelle.
-// Ces points forment un plan continu qui se fragmente.
-const piecesCoords = [
-  // P1: Plaque haut-gauche
-  [[-12, 7], [-4, 7], [-3, 1], [-12, -0.5]],
-  // P2: Grande plaque trapézoïdale couvrant le texte
-  [[-4, 7], [3, 7], [1.5, -2], [-3, 1]],
-  // P3: Plaque droite
-  [[3, 7], [12, 7], [12, 1.5], [1.5, -2]],
-  // P4: Plaque bas-gauche
-  [[-12, -0.5], [-3, 1], [-1.5, -7], [-12, -7]],
-  // P5: Plaque bas-centre
-  [[-3, 1], [1.5, -2], [4, -7], [-1.5, -7]],
-  // P6: Plaque bas-droite
-  [[1.5, -2], [12, 1.5], [12, -7], [4, -7]]
-];
-
 const extrudeSettings = {
-  depth: 0.2, // Épaisseur du maillage (pour la lumière rase)
+  depth: 0.12,
   bevelEnabled: true,
-  bevelSegments: 5,
+  bevelSegments: 8,
   bevelSteps: 2,
-  bevelSize: 0.04, // Rayon du chanfrein
-  bevelThickness: 0.04,
+  bevelSize: 0.018,
+  bevelThickness: 0.024,
 };
 
-// Calcule le barycentre d'une plaque pour la physique de collision/répulsion
 function getCenter(points: number[][]) {
   let cx = 0, cy = 0;
   points.forEach(p => { cx += p[0]; cy += p[1]; });
   return { x: cx / points.length, y: cy / points.length };
 }
 
-function GlassPiece({ points, index }: { points: number[][], index: number }) {
+function GlassPiece({ 
+  points, 
+  index, 
+  simulatedHit 
+}: { 
+  points: number[][], 
+  index: number, 
+  simulatedHit: THREE.Vector3 | null 
+}) {
   const meshRef = useRef<THREE.Mesh>(null);
   const center = useMemo(() => getCenter(points), [points]);
-  
+  const [localHitPoint, setLocalHitPoint] = useState<THREE.Vector3 | null>(null);
+
+  const activeHit = simulatedHit || localHitPoint;
+
   const shape = useMemo(() => {
     const s = new THREE.Shape();
     s.moveTo(points[0][0], points[0][1]);
@@ -52,82 +45,158 @@ function GlassPiece({ points, index }: { points: number[][], index: number }) {
     return s;
   }, [points]);
 
-  // Interpolation de la position et de la rotation via `damp`
   useFrame((state, delta) => {
     if (!meshRef.current) return;
     
-    // Position du curseur projetée sur le plan z=0 (approximatif, viewport basé sur fov=45, z=10)
-    // viewPort.width / height correspond aux unités 3D à z=0
-    const mouseX = (state.pointer.x * state.viewport.width) / 2;
-    const mouseY = (state.pointer.y * state.viewport.height) / 2;
-    
-    const dx = mouseX - center.x;
-    const dy = mouseY - center.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    // Modèle de répulsion physique : le curseur repousse les plaques.
-    const maxRadius = 8;
-    let force = 0;
-    if (dist < maxRadius) {
-      // Force non-linéaire : l'effet est plus fort au centre
-      force = Math.pow((maxRadius - dist) / maxRadius, 2);
+    let targetZ = 0;
+    let targetRotX = 0;
+    let targetRotY = 0;
+    let targetX = 0;
+    let targetY = 0;
+
+    if (activeHit) {
+      // Bras de levier par rapport au centre de gravité de la pièce
+      const leverX = activeHit.x - center.x;
+      const leverY = activeHit.y - center.y;
+      
+      // Système de coordonnées Three.js réel vérifié :
+      // - Pointer en haut (leverY > 0) -> rotX négatif pour enfoncer le bord supérieur
+      // - Pointer à droite (leverX > 0) -> rotY positif pour enfoncer le bord droit
+      targetRotX = -leverY * 0.18;
+      targetRotY = leverX * 0.18;
+      
+      // Enfoncement léger sous le doigt
+      targetZ = -0.04;
+      targetX = -leverX * 0.01;
+      targetY = -leverY * 0.01;
     }
-    
-    // La plaque s'avance en Z lorsqu'elle est touchée par la force
-    const targetZ = force * 1.5; 
-    
-    // La plaque pivote pour "fuir" le pointeur (pitch/yaw inversé)
-    const targetRotX = (dy / maxRadius) * force * 0.15;
-    const targetRotY = -(dx / maxRadius) * force * 0.15;
-    
-    // Mouvement d'expansion de la grille : la force écarte les plaques de leur centre
-    const targetX = dx * force * -0.15;
-    const targetY = dy * force * -0.15;
 
-    // Respiration permanente indépendante de la souris
     const time = state.clock.getElapsedTime();
-    const breathX = Math.sin(time * 0.3 + index) * 0.05;
-    const breathY = Math.cos(time * 0.2 + index) * 0.05;
-    const breathRot = Math.sin(time * 0.4 + index) * 0.01;
+    // Respiration organique subtile au repos
+    const breathRot = !activeHit ? Math.sin(time * 0.6 + index * 1.2) * 0.003 : 0;
+    const breathZ = !activeHit ? Math.cos(time * 0.5 + index * 1.5) * 0.005 : 0;
 
-    // Application fluide de la physique (damping exponentiel frame-indépendant)
-    meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, targetZ, 3, delta);
-    meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, targetX + breathX, 3, delta);
-    meshRef.current.position.y = THREE.MathUtils.damp(meshRef.current.position.y, targetY + breathY, 3, delta);
+    const dampSpeed = activeHit ? 6 : 3;
+
+    meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, targetZ + breathZ, dampSpeed, delta);
+    meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, targetX, dampSpeed, delta);
+    meshRef.current.position.y = THREE.MathUtils.damp(meshRef.current.position.y, targetY, dampSpeed, delta);
     
-    meshRef.current.rotation.x = THREE.MathUtils.damp(meshRef.current.rotation.x, targetRotX + breathRot, 4, delta);
-    meshRef.current.rotation.y = THREE.MathUtils.damp(meshRef.current.rotation.y, targetRotY + breathRot, 4, delta);
+    meshRef.current.rotation.x = THREE.MathUtils.damp(meshRef.current.rotation.x, targetRotX + breathRot, dampSpeed, delta);
+    meshRef.current.rotation.y = THREE.MathUtils.damp(meshRef.current.rotation.y, targetRotY + breathRot, dampSpeed, delta);
   });
 
   return (
-    <mesh ref={meshRef}>
+    <mesh 
+      ref={meshRef}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        setLocalHitPoint(e.point);
+      }}
+      onPointerOut={() => {
+        setLocalHitPoint(null);
+      }}
+    >
       <extrudeGeometry args={[shape, extrudeSettings]} />
-      {/* 
-        Le verre qui réfracte tout.
-        C'est le composant principal responsable du "wow effect". 
-      */}
       <MeshTransmissionMaterial 
-        transmission={0.99} // Transmission de la lumière presque totale
-        thickness={2.0} // Profondeur optique pour la distorsion
-        roughness={0.06} // Légèrement givré pour diffuser les arêtes
-        ior={1.52} // Indice de Réfraction du vrai verre (Crown Glass)
-        chromaticAberration={0.08} // Séparation des couleurs sur les bords
+        transmission={1.0}
+        thickness={1.2}
+        roughness={0.05}
+        ior={1.2}
+        chromaticAberration={0.03}
         backside={true} 
         color="#ffffff"
         clearcoat={1}
-        clearcoatRoughness={0.1}
-        attenuationDistance={3}
-        attenuationColor="#ffffff"
+        clearcoatRoughness={0.05}
+        attenuationDistance={10}
       />
     </mesh>
   );
 }
 
 export default function GlassPieces() {
+  const { viewport } = useThree();
+  const [testFrame, setTestFrame] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setTestFrame(params.get('testFrame'));
+    }
+  }, []);
+
+  const w = viewport.width;
+  const h = viewport.height;
+  
+  const toX = (p: number) => (p / 100 - 0.5) * w;
+  const toY = (p: number) => -(p / 100 - 0.5) * h;
+  
+  // Coordonnées mesurées rigoureusement sur le viewport 860x418
+  const X_L = toX(3.72);   // 32px
+  const X_R = toX(87.09);  // 749px
+  const Y_T = toY(20.57);  // 86px
+  const Y_B = toY(97.37);  // 407px
+  
+  const T1 = toX(12.91);   // 111px
+  const T2 = toX(44.19);   // 380px
+  const T3 = toX(68.60);   // 590px
+  
+  const V1 = [toX(42.79), toY(59.57)]; // (368px, 249px)
+  const V2 = [toX(61.05), toY(61.24)]; // (525px, 256px)
+  
+  const B1 = toX(29.07);   // 250px
+  const B2 = toX(70.35);   // 605px
+
+  const piecesCoords = useMemo(() => [
+    [[X_L, Y_T], [T1, Y_T], V1, [B1, Y_B], [X_L, Y_B]],             // Pièce 0 (Gauche)
+    [[T1, Y_T], [T2, Y_T], V1],                                     // Pièce 1 (Triangle supérieur)
+    [[T2, Y_T], [T3, Y_T], V2, V1],                                 // Pièce 2 (Trapèze haut centre)
+    [V1, V2, [B2, Y_B], [B1, Y_B]],                                 // Pièce 3 (Quad bas centre)
+    [[T3, Y_T], [X_R, Y_T], [X_R, Y_B], [B2, Y_B], V2]             // Pièce 4 (Droite)
+  ], [X_L, X_R, Y_T, Y_B, T1, T2, T3, V1, V2, B1, B2]);
+
+  // Point d'impact simulé selon la frame de test
+  const simulatedHits = useMemo(() => {
+    if (!testFrame) return [null, null, null, null, null];
+    
+    // Frame 01 à 25 : curseur en (320px, 173px) -> sur la Pièce 1 (triangle)
+    if (['1', '01', '5', '05', '10', '15', '20'].includes(testFrame)) {
+      const hitX = (320 / 860 - 0.5) * w;
+      const hitY = -(173 / 418 - 0.5) * h;
+      return [
+        null,
+        new THREE.Vector3(hitX, hitY, 0),
+        null,
+        null,
+        null
+      ];
+    }
+    
+    // Frame 50 : curseur en (680px, 295px) -> sur la Pièce 4 (droite)
+    if (testFrame === '50') {
+      const hitX = (680 / 860 - 0.5) * w;
+      const hitY = -(295 / 418 - 0.5) * h;
+      return [
+        null,
+        null,
+        null,
+        null,
+        new THREE.Vector3(hitX, hitY, 0)
+      ];
+    }
+
+    return [null, null, null, null, null];
+  }, [testFrame, w, h]);
+
   return (
     <group position={[0, 0, 0]}>
       {piecesCoords.map((points, idx) => (
-        <GlassPiece key={idx} points={points} index={idx} />
+        <GlassPiece 
+          key={idx} 
+          points={points} 
+          index={idx} 
+          simulatedHit={simulatedHits[idx]} 
+        />
       ))}
     </group>
   );
