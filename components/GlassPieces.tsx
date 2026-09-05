@@ -1,37 +1,55 @@
 "use client";
 
 import * as THREE from 'three';
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MeshTransmissionMaterial } from '@react-three/drei';
-import { MotionValue } from 'framer-motion';
+import { gsap } from 'gsap';
+import { useGSAP } from '@gsap/react';
 
-// Définition des points pour 5 morceaux de verre irréguliers (style mosaïque)
-const puzzleDef = [
-  // Piece 1: Haut Gauche
-  [[-7, 4], [-2.1, 4], [-1.1, 0.1], [-7, -0.5]],
-  // Piece 2: Haut Droite
-  [[-1.9, 4], [7, 4], [7, 1.1], [1.6, 0.5]],
-  // Piece 3: Bas Gauche
-  [[-7, -0.7], [-1.2, -0.1], [-0.2, -4], [-7, -4]],
-  // Piece 4: Centre
-  [[-0.9, 0], [1.4, 0.4], [0.5, -3.9], [0, -3.9]],
-  // Piece 5: Bas Droite
-  [[1.6, 0.3], [7, 0.9], [7, -4], [0.7, -4]]
+gsap.registerPlugin(useGSAP);
+
+// Coordonnées parfaites d'une grille fracturée (diagramme polygonal)
+// À l'état 0 (position 0,0,0), les arêtes sont parfaitement alignées et jointives.
+const piecesCoords = [
+  // P1: Top Left
+  [[-12, 7], [-2, 7], [-3.5, 1], [-12, -0.5]],
+  // P2: Top Center
+  [[-2, 7], [4, 7], [5.5, -1.5], [-3.5, 1]],
+  // P3: Top Right
+  [[4, 7], [12, 7], [12, 2.5], [5.5, -1.5]],
+  // P4: Bottom Left
+  [[-12, -0.5], [-3.5, 1], [-1, -7], [-12, -7]],
+  // P5: Bottom Center
+  [[-3.5, 1], [5.5, -1.5], [7, -7], [-1, -7]],
+  // P6: Bottom Right
+  [[5.5, -1.5], [12, 2.5], [12, -7], [7, -7]]
 ];
 
 const extrudeSettings = {
   depth: 0.15,
   bevelEnabled: true,
-  bevelSegments: 16,
-  bevelSteps: 4,
-  bevelSize: 0.05,
-  bevelThickness: 0.05,
+  bevelSegments: 4,
+  bevelSteps: 2,
+  bevelSize: 0.03, // Le biseau crée les arêtes lumineuses d'espacement naturel
+  bevelThickness: 0.03,
 };
 
-function GlassPiece({ points, index, scrollYProgress }: { points: number[][], index: number, scrollYProgress: MotionValue<number> }) {
+// Target transformations pour le layout "éclaté" 
+const getExplodedTransform = (index: number) => {
+  const transforms = [
+    { x: -0.8, y: 0.6, z: 0.3, rx: -0.05, ry: 0.05 },  // P1
+    { x: 0.2, y: 1.1, z: -0.1, rx: 0.05, ry: -0.03 }, // P2
+    { x: 1.0, y: 0.5, z: 0.4, rx: 0.02, ry: -0.06 }, // P3
+    { x: -0.9, y: -0.5, z: -0.2, rx: -0.04, ry: 0.04 }, // P4
+    { x: 0.3, y: -0.8, z: 0.5, rx: 0.07, ry: 0.03 }, // P5
+    { x: 1.2, y: -0.6, z: -0.4, rx: -0.03, ry: -0.07 }, // P6
+  ];
+  return transforms[index];
+};
+
+function GlassPiece({ points, index }: { points: number[][], index: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const [hovered, setHovered] = useState(false);
   
   const shape = useMemo(() => {
     const s = new THREE.Shape();
@@ -43,70 +61,106 @@ function GlassPiece({ points, index, scrollYProgress }: { points: number[][], in
     return s;
   }, [points]);
 
-  // Centre d'origine pour l'animation
-  const initZ = 0;
+  // Couche d'interaction : Hover indépendant de GSAP
+  const handlePointerOver = (e: any) => {
+    e.stopPropagation();
+    document.body.style.cursor = 'pointer';
+    if (meshRef.current) {
+      gsap.to(meshRef.current.scale, {
+        x: 1.03, y: 1.03, z: 1.1,
+        duration: 0.8,
+        ease: "power2.out",
+        overwrite: "auto"
+      });
+    }
+  };
 
-  useFrame((state, delta) => {
+  const handlePointerOut = (e: any) => {
+    e.stopPropagation();
+    document.body.style.cursor = 'auto';
+    if (meshRef.current) {
+      gsap.to(meshRef.current.scale, {
+        x: 1, y: 1, z: 1,
+        duration: 1.2,
+        ease: "power2.out",
+        overwrite: "auto"
+      });
+    }
+  };
+
+  useFrame((state) => {
     if (!meshRef.current) return;
-    
-    // Animation au hover (effet loupe / décalage)
-    const targetZ = hovered ? 0.3 : initZ;
-    const targetScale = hovered ? 1.01 : 1;
-    
-    meshRef.current.position.z = THREE.MathUtils.lerp(meshRef.current.position.z, targetZ, delta * 5);
-    meshRef.current.scale.setScalar(THREE.MathUtils.lerp(meshRef.current.scale.x, targetScale, delta * 5));
-    
-    // Animation au scroll (les pièces s'écartent et tournent légèrement)
-    const scrollVal = scrollYProgress.get();
-    const multiplier = (index % 2 === 0 ? 1 : -1) * (index * 0.5 + 1);
-    
-    const scrollYOffset = scrollVal * multiplier * 3;
-    const scrollXOffset = scrollVal * multiplier * 1.5;
-    const scrollRotX = scrollVal * multiplier * 0.2;
-    const scrollRotY = scrollVal * multiplier * 0.1;
-
-    // Appliquer une légère flottaison par défaut + effet de scroll
-    const floatY = Math.sin(state.clock.elapsedTime * 0.5 + index) * 0.05;
-    
-    meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, scrollYOffset + floatY, delta * 2);
-    meshRef.current.position.x = THREE.MathUtils.lerp(meshRef.current.position.x, scrollXOffset, delta * 2);
-    
-    meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, scrollRotX, delta * 2);
-    meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, scrollRotY, delta * 2);
+    const time = state.clock.getElapsedTime();
+    // Mouvement organique subtil et permanent (respiration)
+    meshRef.current.position.y += Math.sin(time * 0.4 + index) * 0.0006;
+    meshRef.current.position.x += Math.cos(time * 0.3 + index) * 0.0004;
   });
 
   return (
     <mesh 
-      ref={meshRef}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
-      onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = 'auto'; }}
+      ref={meshRef} 
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
     >
       <extrudeGeometry args={[shape, extrudeSettings]} />
-      {/* 
-        MeshTransmissionMaterial gives the realistic glass refraction. 
-        Adjusted settings for the dark environment.
-      */}
+      {/* Paramètres optiques ultra réalistes pour reproduire la référence sombre */}
       <MeshTransmissionMaterial 
-        transmission={0.95} 
-        thickness={0.5} 
-        roughness={0.05} 
-        ior={1.3} 
-        chromaticAberration={0.03} 
+        transmission={0.98} 
+        thickness={1.5} 
+        roughness={0.08} 
+        ior={1.45} 
+        chromaticAberration={0.06} 
         backside={true} 
         color="#ffffff"
         clearcoat={1}
         clearcoatRoughness={0.1}
+        attenuationDistance={3}
+        attenuationColor="#ffffff"
       />
     </mesh>
   );
 }
 
-export default function GlassPieces({ scrollYProgress }: { scrollYProgress: MotionValue<number> }) {
+export default function GlassPieces() {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useGSAP(() => {
+    if (!groupRef.current) return;
+    const meshes = groupRef.current.children as THREE.Mesh[];
+    
+    // État 0 : Pièces jointives, alignement parfait des arêtes
+    meshes.forEach((mesh) => {
+      gsap.set(mesh.position, { x: 0, y: 0, z: 0 });
+      gsap.set(mesh.rotation, { x: 0, y: 0, z: 0 });
+    });
+
+    // Orchestration temporelle entre les layouts sans interaction
+    const tl = gsap.timeline({ 
+      repeat: -1, 
+      yoyo: true, 
+      defaults: { ease: "sine.inOut", duration: 10 } 
+    });
+
+    // Interpolation fluide vers l'état éclaté (profondeur Z, écartement)
+    meshes.forEach((mesh, i) => {
+      const transform = getExplodedTransform(i);
+      tl.to(mesh.position, { 
+        x: transform.x, 
+        y: transform.y, 
+        z: transform.z 
+      }, 0);
+      tl.to(mesh.rotation, { 
+        x: transform.rx, 
+        y: transform.ry, 
+        z: 0 
+      }, 0);
+    });
+  }, { scope: groupRef });
+
   return (
-    // Centrer le groupe pour qu'il soit bien devant la caméra
-    <group position={[0, 0, 0]}>
-      {puzzleDef.map((points, idx) => (
-        <GlassPiece key={idx} points={points} index={idx} scrollYProgress={scrollYProgress} />
+    <group ref={groupRef} position={[0, 0, 0]}>
+      {piecesCoords.map((points, idx) => (
+        <GlassPiece key={idx} points={points} index={idx} />
       ))}
     </group>
   );
