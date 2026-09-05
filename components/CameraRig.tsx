@@ -1,0 +1,21 @@
+"use client";
+
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+
+export default function CameraRig() {
+  useFrame((state, delta) => {
+    // Calcul de la position cible à l'opposé du curseur
+    const targetX = -state.pointer.x * 1.5;
+    const targetY = -state.pointer.y * 1.5;
+
+    // Interpolation (lerp) fluide de la position de la caméra
+    state.camera.position.x = THREE.MathUtils.lerp(state.camera.position.x, targetX, delta * 3);
+    state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, targetY, delta * 3);
+
+    // Assure que la caméra fixe toujours le centre de la scène
+    state.camera.lookAt(0, 0, 0);
+  });
+
+  return null; // Ce composant ne rend rien visuellement, il ne gère que la logique
+}
