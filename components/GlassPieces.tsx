@@ -5,6 +5,8 @@ import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { MeshTransmissionMaterial } from '@react-three/drei';
 
+import { useNav } from './NavigationContext';
+
 const extrudeSettings = {
   depth: 0.12,
   bevelEnabled: true,
@@ -23,15 +25,18 @@ function getCenter(points: number[][]) {
 function GlassPiece({ 
   points, 
   index, 
-  simulatedHit 
+  simulatedHit,
+  page
 }: { 
   points: number[][], 
   index: number, 
-  simulatedHit: THREE.Vector3 | null 
+  simulatedHit: THREE.Vector3 | null,
+  page: string
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const center = useMemo(() => getCenter(points), [points]);
   const [localHitPoint, setLocalHitPoint] = useState<THREE.Vector3 | null>(null);
+  const { viewport } = useThree();
 
   const activeHit = simulatedHit || localHitPoint;
 
@@ -51,10 +56,27 @@ function GlassPiece({
     let targetZ = 0;
     let targetRotX = 0;
     let targetRotY = 0;
+    let targetRotZ = 0;
     let targetX = 0;
     let targetY = 0;
 
-    if (activeHit) {
+    const isStudio = page === 'studio';
+
+    if (!isStudio) {
+      // Dispersion spatiale spectaculaire lors de la transition vers les autres pages
+      const disperseDirs = [
+        { x: -viewport.width * 1.2, y: -0.2, z: -5, rz: -0.25 },
+        { x: -viewport.width * 0.4, y: viewport.height * 1.2, z: -5, rz: 0.3 },
+        { x: viewport.width * 0.4, y: viewport.height * 1.2, z: -5, rz: -0.3 },
+        { x: 0, y: -viewport.height * 1.3, z: -5, rz: 0.15 },
+        { x: viewport.width * 1.2, y: 0.2, z: -5, rz: 0.25 },
+      ];
+      const dir = disperseDirs[index % disperseDirs.length];
+      targetX = dir.x;
+      targetY = dir.y;
+      targetZ = dir.z;
+      targetRotZ = dir.rz;
+    } else if (activeHit) {
       // Bras de levier par rapport au centre de gravité de la pièce
       const leverX = activeHit.x - center.x;
       const leverY = activeHit.y - center.y;
@@ -73,10 +95,10 @@ function GlassPiece({
 
     const time = state.clock.getElapsedTime();
     // Respiration organique subtile au repos
-    const breathRot = !activeHit ? Math.sin(time * 0.6 + index * 1.2) * 0.003 : 0;
-    const breathZ = !activeHit ? Math.cos(time * 0.5 + index * 1.5) * 0.005 : 0;
+    const breathRot = (!activeHit && isStudio) ? Math.sin(time * 0.6 + index * 1.2) * 0.003 : 0;
+    const breathZ = (!activeHit && isStudio) ? Math.cos(time * 0.5 + index * 1.5) * 0.005 : 0;
 
-    const dampSpeed = activeHit ? 6 : 3;
+    const dampSpeed = isStudio ? (activeHit ? 6 : 3.5) : 4.5;
 
     meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, targetZ + breathZ, dampSpeed, delta);
     meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, targetX, dampSpeed, delta);
@@ -84,6 +106,7 @@ function GlassPiece({
     
     meshRef.current.rotation.x = THREE.MathUtils.damp(meshRef.current.rotation.x, targetRotX + breathRot, dampSpeed, delta);
     meshRef.current.rotation.y = THREE.MathUtils.damp(meshRef.current.rotation.y, targetRotY + breathRot, dampSpeed, delta);
+    meshRef.current.rotation.z = THREE.MathUtils.damp(meshRef.current.rotation.z, targetRotZ, dampSpeed, delta);
   });
 
   return (
@@ -116,6 +139,7 @@ function GlassPiece({
 
 export default function GlassPieces() {
   const { viewport } = useThree();
+  const { page } = useNav();
   const [testFrame, setTestFrame] = useState<string | null>(null);
 
   useEffect(() => {
@@ -196,6 +220,7 @@ export default function GlassPieces() {
           points={points} 
           index={idx} 
           simulatedHit={simulatedHits[idx]} 
+          page={page}
         />
       ))}
     </group>

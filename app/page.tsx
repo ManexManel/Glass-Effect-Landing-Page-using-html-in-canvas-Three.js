@@ -3,26 +3,82 @@
 import React from "react";
 import { Canvas } from "@react-three/fiber";
 import Scene from "@/components/Scene";
+import { NavProvider, useNav } from "@/components/NavigationContext";
+
+function SignInModal() {
+  const { showSignIn, setShowSignIn } = useNav();
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSignIn(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setShowSignIn]);
+
+  if (!showSignIn) return null;
+
+  return (
+    <div 
+      onClick={() => setShowSignIn(false)}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md transition-opacity"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#121216]/90 p-8 shadow-2xl backdrop-blur-xl"
+      >
+        <button 
+          type="button"
+          onClick={() => setShowSignIn(false)}
+          className="absolute right-4 top-4 p-2 text-gray-400 hover:text-white text-base focus:outline-none"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+        <h2 className="mb-2 text-xl font-bold text-white">Sign in to Prism</h2>
+        <p className="mb-6 text-sm text-gray-400">Access your saved materials, shaders, and prototypes.</p>
+        
+        <form onSubmit={(e) => { e.preventDefault(); setShowSignIn(false); }} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-300">Email address</label>
+            <input 
+              type="email" 
+              required 
+              placeholder="designer@studio.com"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20"
+            />
+          </div>
+          <button 
+            type="submit" 
+            className="w-full rounded-lg bg-white py-2.5 text-sm font-semibold text-black transition-all hover:bg-gray-200"
+          >
+            Continue with Email
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <main className="relative h-screen w-full bg-[#030303] overflow-hidden">
-      {/* 
-        Le DOM HTML disparaît totalement au profit de WebGL.
-        C'est obligatoire pour que MeshTransmissionMaterial puisse
-        réfracter le texte (qui sera rendu via le composant Text de drei dans Scene).
-      */}
-      <div className="absolute inset-0">
-        <Canvas 
-          gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }} 
-          camera={{ position: [0, 0, 10], fov: 45 }}
-        >
-          <color attach="background" args={['#030303']} />
-          <React.Suspense fallback={null}>
-            <Scene />
-          </React.Suspense>
-        </Canvas>
-      </div>
-    </main>
+    <NavProvider>
+      <main className="relative h-screen w-full bg-[#030303] overflow-hidden select-none">
+        <div className="absolute inset-0">
+          <Canvas 
+            gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }} 
+            camera={{ position: [0, 0, 10], fov: 45 }}
+          >
+            <color attach="background" args={['#030303']} />
+            <React.Suspense fallback={null}>
+              <Scene />
+            </React.Suspense>
+          </Canvas>
+        </div>
+
+        {/* Modal de connexion */}
+        <SignInModal />
+      </main>
+    </NavProvider>
   );
 }

@@ -3,11 +3,15 @@
 import React, { useRef } from 'react';
 import { RoundedBox, Text, MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
+
+import { useNav } from './NavigationContext';
 
 export default function HeaderGlass() {
   const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
+  const { page, setPage, setShowSignIn } = useNav();
 
   const w = viewport.width;
   const h = viewport.height;
@@ -24,8 +28,25 @@ export default function HeaderGlass() {
   const centerX = toX((23 + 815) / 2);
   const centerY = toY(62);
 
+  useFrame((state, delta) => {
+    if (groupRef.current) {
+      // Positionnement stable et fluide avec légère adaptation de profondeur
+      const isMaterials = page === 'materials';
+      const targetZ = isMaterials ? 0.35 : 0.4;
+      groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, centerY, 6, delta);
+      groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, targetZ, 6, delta);
+    }
+  });
+
+  const handlePointerOver = () => {
+    document.body.style.cursor = 'pointer';
+  };
+  const handlePointerOut = () => {
+    document.body.style.cursor = 'default';
+  };
+
   return (
-    <group position={[centerX, centerY, 0.4]}>
+    <group ref={groupRef} position={[centerX, centerY, 0.4]}>
       {/* Capsule en verre dépoli sombre */}
       <RoundedBox args={[width, height, 0.08]} radius={toH(12)} smoothness={8} ref={meshRef}>
         <MeshTransmissionMaterial 
@@ -53,6 +74,12 @@ export default function HeaderGlass() {
           anchorY="middle"
           fontWeight="bold"
           letterSpacing={0.02}
+          onClick={(e) => {
+            e.stopPropagation();
+            setPage('studio');
+          }}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
         >
           ■ Prism
         </Text>
@@ -62,27 +89,48 @@ export default function HeaderGlass() {
           <Text 
             position={[0, 0, 0]} 
             fontSize={toW(12)} 
-            color="#888890" 
+            color={page === 'studio' ? "#ffffff" : "#888890"} 
             anchorX="left" 
             anchorY="middle"
+            fontWeight={page === 'studio' ? "bold" : "normal"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPage('studio');
+            }}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
           >
             Studio
           </Text>
           <Text 
             position={[toW(60), 0, 0]} 
             fontSize={toW(12)} 
-            color="#888890" 
+            color={page === 'materials' ? "#ffffff" : "#888890"} 
             anchorX="left" 
             anchorY="middle"
+            fontWeight={page === 'materials' ? "bold" : "normal"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPage('materials');
+            }}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
           >
             Materials
           </Text>
           <Text 
             position={[toW(135), 0, 0]} 
             fontSize={toW(12)} 
-            color="#888890" 
+            color={page === 'pricing' ? "#ffffff" : "#888890"} 
             anchorX="left" 
             anchorY="middle"
+            fontWeight={page === 'pricing' ? "bold" : "normal"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPage('pricing');
+            }}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
           >
             Pricing
           </Text>
@@ -95,6 +143,12 @@ export default function HeaderGlass() {
           color="#b0b0b8" 
           anchorX="right" 
           anchorY="middle"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowSignIn(true);
+          }}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
         >
           Sign in
         </Text>
