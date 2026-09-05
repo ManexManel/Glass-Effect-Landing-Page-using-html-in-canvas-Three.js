@@ -1,10 +1,11 @@
 "use client";
 
-import { Environment, Html } from "@react-three/drei";
+import { Environment, Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import React, { useRef } from "react";
 import * as THREE from "three";
 import GlassPieces from "./GlassPieces";
+import HeaderGlass from "./HeaderGlass";
 import CameraRig from "./CameraRig";
 
 export default function Scene() {
@@ -13,52 +14,107 @@ export default function Scene() {
   useFrame((state) => {
     if (lightRef.current) {
       const time = state.clock.getElapsedTime();
-      // Lumière dynamique lente qui rase les arêtes du verre pour les illuminer
-      lightRef.current.position.x = Math.sin(time * 0.15) * 12;
-      lightRef.current.position.y = Math.cos(time * 0.1) * 8;
+      // Lumière organique rasante
+      lightRef.current.position.x = Math.sin(time * 0.2) * 12;
+      lightRef.current.position.y = Math.cos(time * 0.15) * 8;
     }
   });
 
   return (
     <>
       <ambientLight intensity={0.15} color="#ffffff" />
-      <directionalLight position={[0, 10, -5]} intensity={1} color="#ffffff" />
-      
-      {/* Lumière rasante dynamique pour le relief des arêtes */}
-      <pointLight ref={lightRef} position={[0, 0, 4]} intensity={2.5} distance={25} color="#ffffff" />
+      <directionalLight position={[0, 10, -5]} intensity={0.8} color="#ffffff" />
+      <pointLight ref={lightRef} position={[0, 0, 4]} intensity={2.5} distance={30} color="#ffffff" />
       
       <Environment preset="city" />
       
       <CameraRig />
       
-      <GlassPieces />
+      {/* 
+        ========================================================================
+        TEXTE 100% 3D (WebGL) POUR RÉFRACTION PHYSIQUE
+        ========================================================================
+        Le Html de drei est remplacé par du Text 3D. 
+        C'est le seul moyen pour que le MeshTransmissionMaterial capte le texte
+        et applique la distorsion / l'effet loupe optique de la référence.
+      */}
+      <group position={[-6.5, 0, -3]}>
+        
+        {/* Label (REAL-TIME MATERIAL STUDIO) */}
+        <Text
+          position={[0, 2.5, 0]}
+          fontSize={0.25}
+          color="#888888"
+          anchorX="left"
+          letterSpacing={0.2}
+          font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyeMZhrib2Bg-4.ttf"
+        >
+          REAL-TIME MATERIAL STUDIO
+        </Text>
+        
+        {/* Titre Principal (Designed in glass.) */}
+        <Text
+          position={[0, 0.5, 0]}
+          fontSize={2.5}
+          color="#f5f5f5"
+          anchorX="left"
+          fontWeight="bold"
+          lineHeight={0.9}
+          letterSpacing={-0.05}
+          font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYMZhrib2Bg-4.ttf"
+        >
+          {"Designed\nin glass."}
+        </Text>
+        
+        {/* Paragraphe descriptif */}
+        <Text
+          position={[0, -1.8, 0]}
+          fontSize={0.35}
+          color="#777777"
+          anchorX="left"
+          maxWidth={9}
+          lineHeight={1.4}
+          font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfMZhrib2Bg-4.ttf"
+        >
+          Author dispersion, transmission, and refraction in the browser. Live previews, real materials.
+        </Text>
+
+        {/* Boutons Call To Action 3D */}
+        <group position={[0, -3.2, 0]}>
+          {/* Bouton Open Studio */}
+          <mesh position={[1.8, 0, 0]}>
+            <planeGeometry args={[3.6, 1]} />
+            <meshBasicMaterial color="#eeeeee" />
+            <Text 
+              position={[0, 0, 0.01]} 
+              fontSize={0.28} 
+              color="#111111"
+              font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYMZhrib2Bg-4.ttf"
+            >
+              Open studio
+            </Text>
+          </mesh>
+          
+          {/* Bouton Read Paper */}
+          <Text 
+            position={[4.2, 0, 0]} 
+            fontSize={0.28} 
+            color="#cccccc" 
+            anchorX="left"
+            font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYMZhrib2Bg-4.ttf"
+          >
+            Read paper ↗
+          </Text>
+        </group>
+      </group>
+
+      <HeaderGlass />
       
       {/* 
-        Composition HTML Hero exacte de la vidéo 
-        Située derrière le verre (z = -2)
+        Le verre se place devant la typographie. 
+        Étant donné que la typographie est un mesh, elle sera réfractée !
       */}
-      <Html transform position={[-1, 1, -2]} zIndexRange={[0, 0]}>
-        <div className="flex flex-col items-start w-[800px] pointer-events-none select-none">
-          <h2 className="text-[#888888] uppercase tracking-[0.25em] text-[10px] mb-8 font-medium">
-            Real-time Material Studio
-          </h2>
-          <h1 className="text-[110px] font-black text-[#e5e5e5] leading-[0.95] tracking-[-0.04em]">
-            Designed<br />in glass.
-          </h1>
-          <p className="text-[#777777] mt-8 text-lg max-w-[420px] leading-[1.6]">
-            Author dispersion, transmission, and refraction in the browser. Live previews, real materials.
-          </p>
-          
-          <div className="flex items-center gap-5 mt-10 pointer-events-auto">
-            <button className="bg-[#eeeeee] text-[#111111] px-6 py-3 rounded text-sm font-semibold hover:bg-white transition-colors cursor-pointer">
-              Open studio
-            </button>
-            <button className="text-[#cccccc] px-4 py-3 rounded text-sm font-medium hover:text-white transition-colors flex items-center gap-2 cursor-pointer">
-              Read paper <span className="text-[10px]">↗</span>
-            </button>
-          </div>
-        </div>
-      </Html>
+      <GlassPieces />
     </>
   );
 }
