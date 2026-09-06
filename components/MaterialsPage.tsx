@@ -2,7 +2,7 @@
 
 import React, { useRef, useMemo, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Text, MeshTransmissionMaterial } from '@react-three/drei';
+import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { useNav } from './NavigationContext';
 
@@ -115,20 +115,20 @@ export default function MaterialsPage() {
 
         <mesh ref={buttonRef}>
           <extrudeGeometry args={[buttonShape, buttonExtrudeSettings]} />
-          <MeshTransmissionMaterial
-            transmission={0.92}
-            thickness={0.5}
-            roughness={0.15}
-            ior={1.25}
-            chromaticAberration={0.03}
-            backside={true}
-            color="#18181c"
-            attenuationColor="#0a0a0d"
-            attenuationDistance={2}
-            clearcoat={1}
-            clearcoatRoughness={0.08}
-            resolution={256}
-            samples={2}
+          <meshPhysicalMaterial
+            transmission={0.9}
+            thickness={0.6}
+            roughness={0.12}
+            ior={1.3}
+            color="#1a1c24"
+            attenuationColor="#0a0a0f"
+            attenuationDistance={2.5}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            specularIntensity={1.0}
+            specularColor="#ffffff"
+            transparent={true}
+            opacity={0.96}
           />
           {/* Texte centré sur le bouton */}
           <Text
@@ -141,63 +141,66 @@ export default function MaterialsPage() {
           >
             ← Back
           </Text>
-          <Text
-            position={[toW(28), 0, 0.1]}
-            fontSize={toW(8)}
-            color="#9999a4"
-            anchorX="center"
-            anchorY="middle"
-          >
-            ▶
-          </Text>
         </mesh>
       </group>
 
-      {/* Contenu textuel sur 5 termes (droite) */}
-      <group position={[toX(260), toY(135), 0]}>
-        {/* Titre de section */}
-        <Text
-          position={[0, 0, 0]}
-          fontSize={toW(16)}
-          color="#f5f5f7"
-          anchorX="left"
-          anchorY="top"
-          fontWeight="bold"
-          letterSpacing={-0.02}
-        >
-          Real-time glass, in five terms.
-        </Text>
+      {/* Titre "Optical phenomena" */}
+      <Text
+        position={[toX(320), toY(110), 0]}
+        fontSize={toW(30)}
+        color="#ffffff"
+        anchorX="left"
+        anchorY="top"
+        fontWeight="bold"
+        letterSpacing={-0.03}
+      >
+        Optical phenomena
+      </Text>
 
-        {/* Liste des 5 termes */}
+      {/* Liste des 5 notions techniques (Frame 38 vérifiée) */}
+      <group position={[toX(320), toY(165), 0]}>
         {terms.map((item, idx) => {
-          const yOffset = -toH(32 + idx * 46);
+          const yOffset = -idx * toH(48);
           return (
             <group key={idx} position={[0, yOffset, 0]}>
+              {/* Terme en gras */}
               <Text
                 position={[0, 0, 0]}
-                fontSize={toW(10)}
-                color="#ffffff"
+                fontSize={toW(12.5)}
+                color="#f0f0f5"
                 anchorX="left"
                 anchorY="top"
                 fontWeight="bold"
               >
                 {item.term}
               </Text>
+              {/* Description détaillée */}
               <Text
-                position={[toW(item.term.length * 5.8 + 12), 0, 0]}
+                position={[0, -toH(16), 0]}
                 fontSize={toW(9.5)}
                 color="#888892"
                 anchorX="left"
                 anchorY="top"
-                maxWidth={toW(460)}
-                lineHeight={1.38}
+                maxWidth={toW(440)}
+                lineHeight={1.35}
               >
-                {"— " + item.desc}
+                {item.desc}
               </Text>
             </group>
           );
         })}
       </group>
+
+      {/* Bas de page / Footer technique de la page Materials */}
+      <Text
+        position={[toX(320), toY(390), 0]}
+        fontSize={toW(9)}
+        color="#555560"
+        anchorX="left"
+        anchorY="bottom"
+      >
+        KHR_materials_volume · KHR_materials_transmission · KHR_materials_ior
+      </Text>
     </group>
   );
 }

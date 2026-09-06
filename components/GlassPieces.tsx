@@ -3,17 +3,16 @@
 import * as THREE from 'three';
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { MeshTransmissionMaterial } from '@react-three/drei';
 
 import { useNav } from './NavigationContext';
 
 const extrudeSettings = {
-  depth: 0.12,
+  depth: 0.16,
   bevelEnabled: true,
-  bevelSegments: 8,
+  bevelSegments: 6,
   bevelSteps: 2,
-  bevelSize: 0.018,
-  bevelThickness: 0.024,
+  bevelSize: 0.032,
+  bevelThickness: 0.035,
 };
 
 function getCenter(points: number[][]) {
@@ -40,15 +39,22 @@ function GlassPiece({
 
   const activeHit = simulatedHit || localHitPoint;
 
+  // Création de la géométrie avec léger retrait (0.986) pour révéler les biseaux et les rainures du puzzle
   const shape = useMemo(() => {
     const s = new THREE.Shape();
-    s.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      s.lineTo(points[i][0], points[i][1]);
+    // Échelle subtile autour du centroïde pour créer la couture précise de 2px
+    const scaledPoints = points.map(([px, py]) => [
+      center.x + (px - center.x) * 0.986,
+      center.y + (py - center.y) * 0.986
+    ]);
+
+    s.moveTo(scaledPoints[0][0], scaledPoints[0][1]);
+    for (let i = 1; i < scaledPoints.length; i++) {
+      s.lineTo(scaledPoints[i][0], scaledPoints[i][1]);
     }
-    s.lineTo(points[0][0], points[0][1]);
+    s.closePath();
     return s;
-  }, [points]);
+  }, [points, center]);
 
   useFrame((state, delta) => {
     if (!meshRef.current) return;
@@ -65,11 +71,11 @@ function GlassPiece({
     if (!isStudio) {
       // Dispersion spatiale spectaculaire lors de la transition vers les autres pages
       const disperseDirs = [
-        { x: -viewport.width * 1.2, y: -0.2, z: -5, rz: -0.25 },
-        { x: -viewport.width * 0.4, y: viewport.height * 1.2, z: -5, rz: 0.3 },
-        { x: viewport.width * 0.4, y: viewport.height * 1.2, z: -5, rz: -0.3 },
-        { x: 0, y: -viewport.height * 1.3, z: -5, rz: 0.15 },
-        { x: viewport.width * 1.2, y: 0.2, z: -5, rz: 0.25 },
+        { x: -viewport.width * 1.3, y: -0.2, z: -5, rz: -0.28 },
+        { x: -viewport.width * 0.45, y: viewport.height * 1.3, z: -5, rz: 0.35 },
+        { x: viewport.width * 0.45, y: viewport.height * 1.3, z: -5, rz: -0.35 },
+        { x: 0, y: -viewport.height * 1.4, z: -5, rz: 0.18 },
+        { x: viewport.width * 1.3, y: 0.2, z: -5, rz: 0.28 },
       ];
       const dir = disperseDirs[index % disperseDirs.length];
       targetX = dir.x;
@@ -77,20 +83,18 @@ function GlassPiece({
       targetZ = dir.z;
       targetRotZ = dir.rz;
     } else if (activeHit) {
-      // Bras de levier par rapport au centre de gravité de la pièce
+      // Effet levier physique vérifié sur la vidéo de référence (Frame 01-20)
       const leverX = activeHit.x - center.x;
       const leverY = activeHit.y - center.y;
       
-      // Système de coordonnées Three.js réel vérifié :
-      // - Pointer en haut (leverY > 0) -> rotX négatif pour enfoncer le bord supérieur
-      // - Pointer à droite (leverX > 0) -> rotY positif pour enfoncer le bord droit
-      targetRotX = -leverY * 0.18;
-      targetRotY = leverX * 0.18;
+      // Inclinaison 3D sous la pression du curseur
+      targetRotX = -leverY * 0.22;
+      targetRotY = leverX * 0.22;
       
-      // Enfoncement léger sous le doigt
-      targetZ = -0.04;
-      targetX = -leverX * 0.01;
-      targetY = -leverY * 0.01;
+      // La plaque s'avance légèrement vers la caméra pour révéler sa tranche biseautée
+      targetZ = 0.07;
+      targetX = -leverX * 0.012;
+      targetY = -leverY * 0.012;
     }
 
     const time = state.clock.getElapsedTime();
@@ -98,7 +102,7 @@ function GlassPiece({
     const breathRot = (!activeHit && isStudio) ? Math.sin(time * 0.6 + index * 1.2) * 0.003 : 0;
     const breathZ = (!activeHit && isStudio) ? Math.cos(time * 0.5 + index * 1.5) * 0.005 : 0;
 
-    const dampSpeed = isStudio ? (activeHit ? 6 : 3.5) : 4.5;
+    const dampSpeed = isStudio ? (activeHit ? 6.5 : 3.5) : 4.5;
 
     meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, targetZ + breathZ, dampSpeed, delta);
     meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, targetX, dampSpeed, delta);
@@ -121,19 +125,28 @@ function GlassPiece({
       }}
     >
       <extrudeGeometry args={[shape, extrudeSettings]} />
-      <MeshTransmissionMaterial 
-        transmission={1.0}
-        thickness={1.2}
-        roughness={0.05}
-        ior={1.2}
-        chromaticAberration={0.03}
-        backside={true} 
-        color="#ffffff"
-        clearcoat={1}
-        clearcoatRoughness={0.05}
-        attenuationDistance={10}
-        resolution={512}
-        samples={4}
+      {/* 
+        Matériau physique Three.js natif haute fidélité :
+        - Verre cryolite sombre fumé (teinte obsidian luxueuse)
+        - Transmission physique 88% réfractant le texte et le fond
+        - Biseaux à fort reflet spéculaire et vernis miroir (clearcoat 1.0)
+        - Exécution fluide à 60 FPS sans surcharge FBO
+      */}
+      <meshPhysicalMaterial 
+        color="#151720"
+        transmission={0.88}
+        opacity={1}
+        transparent={true}
+        roughness={0.07}
+        ior={1.42}
+        thickness={1.4}
+        specularIntensity={1.0}
+        specularColor="#ffffff"
+        clearcoat={1.0}
+        clearcoatRoughness={0.04}
+        reflectivity={0.92}
+        attenuationColor="#b0caff"
+        attenuationDistance={3.5}
       />
     </mesh>
   );

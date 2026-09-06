@@ -5,6 +5,38 @@ import { Canvas } from "@react-three/fiber";
 import Scene from "@/components/Scene";
 import { NavProvider, useNav } from "@/components/NavigationContext";
 
+class WebGLErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn("WebGL context notification:", error.message);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full w-full items-center justify-center p-8 text-center text-gray-400">
+          <div className="max-w-md rounded-xl border border-white/10 bg-[#101014] p-6 text-sm">
+            <h3 className="mb-2 font-semibold text-white">WebGL Initializing</h3>
+            <p>Please ensure hardware acceleration is enabled in your browser settings to experience real-time 3D glass physics.</p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function SignInModal() {
   const { showSignIn, setShowSignIn } = useNav();
 
@@ -65,15 +97,21 @@ export default function Home() {
     <NavProvider>
       <main className="relative h-screen w-full bg-[#030303] overflow-hidden select-none">
         <div className="absolute inset-0">
-          <Canvas 
-            gl={{ antialias: true, powerPreference: "default" }} 
-            camera={{ position: [0, 0, 10], fov: 45 }}
-          >
-            <color attach="background" args={['#030303']} />
-            <React.Suspense fallback={null}>
-              <Scene />
-            </React.Suspense>
-          </Canvas>
+          <WebGLErrorBoundary>
+            <Canvas 
+              gl={{ 
+                antialias: true, 
+                powerPreference: "default",
+                failIfMajorPerformanceCaveat: false 
+              }} 
+              camera={{ position: [0, 0, 10], fov: 45 }}
+            >
+              <color attach="background" args={['#030303']} />
+              <React.Suspense fallback={null}>
+                <Scene />
+              </React.Suspense>
+            </Canvas>
+          </WebGLErrorBoundary>
         </div>
 
         {/* Modal de connexion */}

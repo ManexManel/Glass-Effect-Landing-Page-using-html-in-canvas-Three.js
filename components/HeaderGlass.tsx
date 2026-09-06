@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef } from 'react';
-import { RoundedBox, Text, MeshTransmissionMaterial } from '@react-three/drei';
+import { RoundedBox, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { useThree, useFrame } from '@react-three/fiber';
 
@@ -49,19 +49,20 @@ export default function HeaderGlass() {
     <group ref={groupRef} position={[centerX, centerY, 0.4]}>
       {/* Capsule en verre dépoli sombre */}
       <RoundedBox args={[width, height, 0.08]} radius={toH(12)} smoothness={8} ref={meshRef}>
-        <MeshTransmissionMaterial 
+        <meshPhysicalMaterial 
           transmission={0.88} 
-          thickness={0.4} 
-          roughness={0.25} 
-          ior={1.25} 
-          color="#151518"
-          attenuationColor="#0a0a0c"
-          attenuationDistance={1.5}
-          clearcoat={0.8}
-          clearcoatRoughness={0.1}
-          chromaticAberration={0.015}
-          resolution={256}
-          samples={2}
+          thickness={0.5} 
+          roughness={0.16} 
+          ior={1.28} 
+          color="#16171e"
+          attenuationColor="#0a0a0f"
+          attenuationDistance={1.8}
+          clearcoat={1.0}
+          clearcoatRoughness={0.08}
+          specularIntensity={1.0}
+          specularColor="#ffffff"
+          transparent={true}
+          opacity={0.96}
         />
       </RoundedBox>
 
@@ -137,14 +138,15 @@ export default function HeaderGlass() {
             Pricing
           </Text>
         </group>
-        
-        {/* Bouton "Sign in" à droite */}
+
+        {/* Bouton Sign In (aligné à droite) */}
         <Text 
-          position={[width / 2 - toW(30), 0, 0]} 
+          position={[width / 2 - toW(28), 0, 0]} 
           fontSize={toW(12)} 
-          color="#b0b0b8" 
+          color="#f0f0f0" 
           anchorX="right" 
           anchorY="middle"
+          fontWeight="500"
           onClick={(e) => {
             e.stopPropagation();
             setShowSignIn(true);
@@ -152,7 +154,7 @@ export default function HeaderGlass() {
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
         >
-          Sign in
+          Sign In
         </Text>
       </group>
     </group>
