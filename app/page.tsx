@@ -5,35 +5,16 @@ import { Canvas } from "@react-three/fiber";
 import Scene from "@/components/Scene";
 import { NavProvider, useNav } from "@/components/NavigationContext";
 
-class WebGLErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error) {
-    console.warn("WebGL context notification:", error.message);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex h-full w-full items-center justify-center p-8 text-center text-gray-400">
-          <div className="max-w-md rounded-xl border border-white/10 bg-[#101014] p-6 text-sm">
-            <h3 className="mb-2 font-semibold text-white">WebGL Initializing</h3>
-            <p>Please ensure hardware acceleration is enabled in your browser settings to experience real-time 3D glass physics.</p>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
+function checkWebGL(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(
+      window.WebGLRenderingContext &&
+      (canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -93,11 +74,17 @@ function SignInModal() {
 }
 
 export default function Home() {
+  const [hasWebGL, setHasWebGL] = React.useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    setHasWebGL(checkWebGL());
+  }, []);
+
   return (
     <NavProvider>
       <main className="relative h-screen w-full bg-[#030303] overflow-hidden select-none">
         <div className="absolute inset-0">
-          <WebGLErrorBoundary>
+          {hasWebGL === true && (
             <Canvas 
               gl={{ 
                 antialias: true, 
@@ -111,7 +98,20 @@ export default function Home() {
                 <Scene />
               </React.Suspense>
             </Canvas>
-          </WebGLErrorBoundary>
+          )}
+
+          {hasWebGL === false && (
+            <div className="flex h-full w-full items-center justify-center p-8 text-center text-gray-400">
+              <div className="max-w-md rounded-2xl border border-white/10 bg-[#121216]/90 p-8 shadow-2xl backdrop-blur-xl">
+                <div className="mb-4 text-3xl">💎</div>
+                <h3 className="mb-2 text-lg font-bold text-white">Prism Real-Time 3D Studio</h3>
+                <p className="text-sm text-gray-400">
+                  Hardware acceleration or WebGL is currently unavailable in this browser session. 
+                  Please open in Chrome, Edge, or Firefox with hardware acceleration enabled to experience the real-time optical glass engine.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal de connexion */}
