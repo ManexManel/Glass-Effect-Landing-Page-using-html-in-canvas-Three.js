@@ -94,36 +94,29 @@ class WebGLErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   }
 }
 
+import CSSGlassScene from "@/components/CSSGlassScene";
+
 function CanvasContainer() {
   const [webglReady, setWebglReady] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
     try {
       const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      setWebglReady(!!gl);
+      const options = {
+        failIfMajorPerformanceCaveat: false,
+        powerPreference: 'default' as const,
+      };
+      const gl2 = canvas.getContext('webgl2', options);
+      const gl1 = !gl2 ? (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options)) : null;
+      setWebglReady(!!(gl2 || gl1));
     } catch {
       setWebglReady(false);
     }
   }, []);
 
+  // Si WebGL n'est pas disponible (ou désactivé par le navigateur), afficher la version CSS Glassmorphism identique
   if (webglReady === false) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-[#030303] text-white p-6 text-center">
-        <div className="max-w-md p-8 rounded-2xl border border-white/10 bg-[#121216]/90 shadow-2xl backdrop-blur-xl">
-          <h2 className="text-xl font-bold mb-2 text-white">Prism 3D Studio</h2>
-          <p className="text-sm text-gray-400 mb-6">
-            L'accélération matérielle WebGL est requise pour afficher le rendu de verre 3D temps réel.
-          </p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-5 py-2.5 bg-white text-black font-semibold text-sm rounded-lg hover:bg-gray-200 transition-all"
-          >
-            Recharger
-          </button>
-        </div>
-      </div>
-    );
+    return <CSSGlassScene />;
   }
 
   if (webglReady === null) return null;
@@ -139,7 +132,7 @@ function CanvasContainer() {
       camera={{ position: [0, 0, 10], fov: 45 }}
     >
       <color attach="background" args={['#030303']} />
-      <React.Suspense fallback={null}>
+      <React.Suspense fallback={<CSSGlassScene />}>
         <Scene />
       </React.Suspense>
     </Canvas>
