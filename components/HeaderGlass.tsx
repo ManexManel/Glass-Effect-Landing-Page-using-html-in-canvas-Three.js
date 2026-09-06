@@ -60,6 +60,8 @@ export default function HeaderGlass() {
           clearcoat={0.8}
           clearcoatRoughness={0.1}
           chromaticAberration={0.015}
+          resolution={256}
+          samples={2}
         />
       </RoundedBox>
 

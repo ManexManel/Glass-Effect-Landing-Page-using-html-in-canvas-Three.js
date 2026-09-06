@@ -60,93 +60,20 @@ function SignInModal() {
   );
 }
 
-class WebGLErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: '' };
-  }
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, error: error?.message || 'WebGL context creation error' };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#030303] text-white p-6 text-center">
-          <div className="max-w-md p-8 rounded-2xl border border-white/10 bg-[#121216]/90 shadow-2xl backdrop-blur-xl">
-            <h2 className="text-xl font-bold mb-2 text-white">Prism 3D Studio</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              L'accélération matérielle WebGL 3D est requise pour calculer les réfractions de verre optique en temps réel.
-            </p>
-            <p className="text-xs text-yellow-400/90 mb-6 font-mono bg-yellow-950/30 p-2.5 rounded border border-yellow-800/40">
-              Veuillez ouvrir la page dans Google Chrome, Edge ou Brave avec l'accélération graphique activée.
-            </p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-5 py-2.5 bg-white text-black font-semibold text-sm rounded-lg hover:bg-gray-200 transition-all"
-            >
-              Recharger la page
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-import CSSGlassScene from "@/components/CSSGlassScene";
-
-function CanvasContainer() {
-  const [webglReady, setWebglReady] = React.useState<boolean | null>(null);
-
-  React.useEffect(() => {
-    try {
-      const canvas = document.createElement('canvas');
-      const options = {
-        failIfMajorPerformanceCaveat: false,
-        powerPreference: 'default' as const,
-      };
-      const gl2 = canvas.getContext('webgl2', options);
-      const gl1 = !gl2 ? (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options)) : null;
-      setWebglReady(!!(gl2 || gl1));
-    } catch {
-      setWebglReady(false);
-    }
-  }, []);
-
-  // Si WebGL n'est pas disponible (ou désactivé par le navigateur), afficher la version CSS Glassmorphism identique
-  if (webglReady === false) {
-    return <CSSGlassScene />;
-  }
-
-  if (webglReady === null) return null;
-
-  return (
-    <Canvas 
-      gl={{ 
-        antialias: true, 
-        alpha: false, 
-        powerPreference: "default",
-        failIfMajorPerformanceCaveat: false
-      }} 
-      camera={{ position: [0, 0, 10], fov: 45 }}
-    >
-      <color attach="background" args={['#030303']} />
-      <React.Suspense fallback={<CSSGlassScene />}>
-        <Scene />
-      </React.Suspense>
-    </Canvas>
-  );
-}
-
 export default function Home() {
   return (
     <NavProvider>
       <main className="relative h-screen w-full bg-[#030303] overflow-hidden select-none">
         <div className="absolute inset-0">
-          <WebGLErrorBoundary>
-            <CanvasContainer />
-          </WebGLErrorBoundary>
+          <Canvas 
+            gl={{ antialias: true, powerPreference: "default" }} 
+            camera={{ position: [0, 0, 10], fov: 45 }}
+          >
+            <color attach="background" args={['#030303']} />
+            <React.Suspense fallback={null}>
+              <Scene />
+            </React.Suspense>
+          </Canvas>
         </div>
 
         {/* Modal de connexion */}

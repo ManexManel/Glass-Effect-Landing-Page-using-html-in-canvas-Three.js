@@ -198,6 +198,8 @@ export default function Scene() {
               ior={1.25}
               color="#151518"
               clearcoat={1}
+              resolution={256}
+              samples={2}
             />
           </RoundedBox>
           <Text position={[0, toH(70), 0.1]} fontSize={toW(18)} color="#ffffff" fontWeight="bold">

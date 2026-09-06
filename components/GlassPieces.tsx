@@ -132,6 +132,8 @@ function GlassPiece({
         clearcoat={1}
         clearcoatRoughness={0.05}
         attenuationDistance={10}
+        resolution={512}
+        samples={4}
       />
     </mesh>
   );

@@ -127,6 +127,8 @@ export default function MaterialsPage() {
             attenuationDistance={2}
             clearcoat={1}
             clearcoatRoughness={0.08}
+            resolution={256}
+            samples={2}
           />
           {/* Texte centré sur le bouton */}
           <Text
